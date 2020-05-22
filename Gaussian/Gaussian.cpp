@@ -1,20 +1,108 @@
-﻿// Gaussian.cpp : 此文件包含 "main" 函数。程序执行将在此处开始并结束。
-//
-
+﻿#include<opencv2/opencv.hpp>
 #include <iostream>
+
+cv::Point vP;
+//观测点位置选择
+
+using namespace cv;
+using namespace std;
+
+//鼠标响应
+void on_mouse(int EVENT, int x, int y, int flags, void* userdata)
+{
+
+	Mat hh;
+	hh = *(Mat*)userdata;
+	switch (EVENT)
+	{
+	case EVENT_LBUTTONDOWN:
+	{
+		vP.x = x;
+		vP.y = y;
+		drawMarker(hh, vP, Scalar(255, 255, 255));
+		//circle(hh, vP, 4, cvScalar(255, 255, 255), -1);
+		imshow("mouseCallback", hh);
+		return;
+	}
+	break;
+	}
+
+}
+
+//直方图绘制
+int drawHist(cv::Mat & histMat, float * srcHist, int bin_width, int bin_heght)
+{
+	histMat.create(bin_heght, 256 * bin_width, CV_8UC3);
+
+	histMat = Scalar(255, 255, 255);
+
+	float maxVal = *std::max_element(srcHist, srcHist + 256);
+
+	for (int i = 0; i < 256; i++) {
+		Rect binRect;
+		binRect.x = i * bin_width;
+		float height_i = (float)bin_heght*srcHist[i] / maxVal;
+		binRect.height = (int)height_i;
+		binRect.y = bin_heght - binRect.height;
+		binRect.width = bin_width;
+		rectangle(histMat, binRect, CV_RGB(255, 0, 0), -1);
+	}
+
+	return 0;
+}
 
 int main()
 {
-    std::cout << "Hello World!\n";
+	VideoCapture capVideo(0);
+	if (!capVideo.isOpened()) {
+		std::cout << "fail to open video" << std::endl;
+		return -1;
+	}
+
+	int cnt = 0;
+	int bin_width = 3;
+	int bin_heith = 50;
+	float histgram[256] = { 0 };
+
+	Mat histMat;
+
+	while (1) {
+
+		Mat frame;
+		Mat grayMat;
+		capVideo >> frame;
+
+		if (frame.empty()) {
+			std::cout << "fail to open the video" << std::endl;
+			return -1;
+
+		}
+		if (cnt == 0) {
+			Mat selectMat;
+			frame.copyTo(selectMat);
+			namedWindow("mouseCallback");
+			imshow("mouseCallback", selectMat);
+			setMouseCallback("mouseCallback", on_mouse, &selectMat);
+			waitKey(0);
+			destroyAllWindows();
+		}
+
+		cvtColor(frame, grayMat, COLOR_BGR2GRAY);
+
+		//获得像素灰度值
+		int index = grayMat.at<uchar>(vP.y, vP.x);
+		//直方图相应的bin加1
+		histgram[index]++;
+
+		drawHist(histMat, histgram, bin_width, bin_heith);
+
+		drawMarker(frame, vP, Scalar(255, 255, 255));
+		imshow("frame", frame);
+		imshow("histMat", histMat);
+
+		waitKey(30);
+		cnt++;
+	}
+
+	return 0;
 }
-
-// 运行程序: Ctrl + F5 或调试 >“开始执行(不调试)”菜单
-// 调试程序: F5 或调试 >“开始调试”菜单
-
-// 入门使用技巧: 
-//   1. 使用解决方案资源管理器窗口添加/管理文件
-//   2. 使用团队资源管理器窗口连接到源代码管理
-//   3. 使用输出窗口查看生成输出和其他消息
-//   4. 使用错误列表窗口查看错误
-//   5. 转到“项目”>“添加新项”以创建新的代码文件，或转到“项目”>“添加现有项”以将现有代码文件添加到项目
-//   6. 将来，若要再次打开此项目，请转到“文件”>“打开”>“项目”并选择 .sln 文件
